@@ -28,6 +28,7 @@ namespace PT2
         private Timer monitoringTimer;
         private int timeRemainingSeconds = 0;
         private bool isRunning = false;
+        private bool isUnlocking = false;
         private GpuMonitor gpuMonitor;
         private PerformanceCounter cpuCounter;
 
@@ -86,7 +87,6 @@ namespace PT2
 
             this.Shown += (s, e) =>
             {
-                // Najpierw upewnij się, że ikonka w trayu pojawi się poprawnie (gdy Explorer już wstał)
                 notifyIcon1.Visible = true;
 
                 if (args.Contains("/sillent") || args.Contains("-sillent") || args.Contains("sillent"))
@@ -102,7 +102,6 @@ namespace PT2
                         timeRemainingSeconds = hours * 3600;
                     }
 
-                    // Kluczowy moment: jeśli po restarcie czas w pliku to 0 lub mniej, od razu egzekwuj limit!
                     if (timeRemainingSeconds <= 0)
                     {
                         timeRemainingSeconds = 0;
@@ -1265,7 +1264,7 @@ namespace PT2
                 Width = 380,
                 Height = 205,
                 FormBorderStyle = FormBorderStyle.FixedDialog,
-                Text = "Koniec czasu - Wymagane hasło",
+                Text = "Time's up – Password required",
                 StartPosition = FormStartPosition.CenterScreen,
                 BackColor = Color.FromArgb(24, 24, 27),
                 ForeColor = Color.White,
@@ -1276,7 +1275,7 @@ namespace PT2
 
             Label lblInfo = new Label()
             {
-                Text = "Czas minął! Wpisz hasło w ciągu 5 minut,\ninaczej komputer zostanie ponownie wyłączony.",
+                Text = "Time's up! Enter the password within 5 minutes, otherwise the computer will shut down again.",
                 Location = new Point(20, 15),
                 Size = new Size(330, 40),
                 Font = new Font("Segoe UI", 9.5F)
@@ -1284,7 +1283,7 @@ namespace PT2
 
             Label lblCountdown = new Label()
             {
-                Text = "Pozostały czas: 05:00",
+                Text = "Time remaining: 05:00",
                 Location = new Point(20, 60),
                 Size = new Size(330, 25),
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold),
@@ -1303,7 +1302,7 @@ namespace PT2
 
             Button btnConfirm = new Button()
             {
-                Text = "Odblokuj",
+                Text = "Unlock",
                 Location = new Point(240, 135),
                 Size = new Size(100, 35),
                 FlatStyle = FlatStyle.Flat,
@@ -1357,6 +1356,12 @@ namespace PT2
 
         private void EnforceTimeLimit()
         {
+            // Jeśli okno odblokowania jest już otwarte, nic nie rób
+            if (isUnlocking) return;
+
+            isUnlocking = true;
+            monitoringTimer.Stop(); // Zatrzymaj timer, aby nie wywoływał kolejnych okien co 5s
+
             string[] gamesToWatch = txtProcessList.Text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
             Process[] runningProcesses = Process.GetProcesses();
             foreach (var game in gamesToWatch)
@@ -1389,6 +1394,8 @@ namespace PT2
                 }
                 catch { }
             }
+
+            isUnlocking = false;
         }
 
         private void UpdateTimerLabel()
