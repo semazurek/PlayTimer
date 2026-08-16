@@ -19,6 +19,7 @@ Even if the user restarts the computer, the playtime counter is temporarily save
 3) 15 minutes before the end, the program will display a message warning that the gaming session is about to finish, and it will shut down the computer once the time has elapsed.
 
 4) The folder containing the password is hidden, and the password file is hashed: %programdata%\PlayTimer (Remove PT.log file to set new password)
+A user with administrator privileges can kill the process handling the application.
 
 ## First look
 
