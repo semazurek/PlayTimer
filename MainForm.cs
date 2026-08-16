@@ -1244,45 +1244,139 @@ namespace PT2
             }
         }
 
+        private bool PromptForUnlockWithTimeout()
+        {
+            bool unlocked = false;
+            int secondsLeft = 300;
+
+            Form prompt = new Form()
+            {
+                Width = 380,
+                Height = 205,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                Text = "Koniec czasu - Wymagane hasło",
+                StartPosition = FormStartPosition.CenterScreen,
+                BackColor = Color.FromArgb(24, 24, 27),
+                ForeColor = Color.White,
+                MaximizeBox = false,
+                MinimizeBox = false,
+                ControlBox = false
+            };
+
+            Label lblInfo = new Label()
+            {
+                Text = "Czas minął! Wpisz hasło w ciągu 5 minut,\ninaczej komputer zostanie ponownie wyłączony.",
+                Location = new Point(20, 15),
+                Size = new Size(330, 40),
+                Font = new Font("Segoe UI", 9.5F)
+            };
+
+            Label lblCountdown = new Label()
+            {
+                Text = "Pozostały czas: 05:00",
+                Location = new Point(20, 60),
+                Size = new Size(330, 25),
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(239, 68, 68)
+            };
+
+            TextBox txt = new TextBox()
+            {
+                Location = new Point(20, 95),
+                Size = new Size(320, 30),
+                UseSystemPasswordChar = true,
+                BackColor = Color.FromArgb(38, 38, 42),
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI", 10F)
+            };
+
+            Button btnConfirm = new Button()
+            {
+                Text = "Odblokuj",
+                Location = new Point(240, 135),
+                Size = new Size(100, 35),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(0, 122, 204),
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI", 9.5F, FontStyle.Bold)
+            };
+            btnConfirm.FlatAppearance.BorderSize = 0;
+
+            Timer countdownTimer = new Timer() { Interval = 1000 };
+            countdownTimer.Tick += (s, ev) =>
+            {
+                secondsLeft--;
+                int m = secondsLeft / 60;
+                int sRem = secondsLeft % 60;
+                lblCountdown.Text = $"Pozostały czas na wpisanie hasła: {m:D2}:{sRem:D2}";
+
+                if (secondsLeft <= 0)
+                {
+                    countdownTimer.Stop();
+                    prompt.Close();
+                }
+            };
+
+            btnConfirm.Click += (s, ev) =>
+            {
+                if (AppManager.VerifyPassword(txt.Text))
+                {
+                    unlocked = true;
+                    countdownTimer.Stop();
+                    prompt.Close();
+                }
+                else
+                {
+                    MessageBox.Show("Nieprawidłowe hasło!", "Błąd", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            };
+
+            prompt.Controls.Add(lblInfo);
+            prompt.Controls.Add(lblCountdown);
+            prompt.Controls.Add(txt);
+            prompt.Controls.Add(btnConfirm);
+            prompt.AcceptButton = btnConfirm;
+
+            countdownTimer.Start();
+            prompt.ShowDialog();
+            countdownTimer.Dispose();
+
+            return unlocked;
+        }
+
         private void EnforceTimeLimit()
         {
-            string[] gamesToWatch =
-                txtProcessList.Text.Split(
-                    new[] { "\r\n", "\n" },
-                    StringSplitOptions.RemoveEmptyEntries);
-
-            Process[] runningProcesses =
-                Process.GetProcesses();
-
+            string[] gamesToWatch = txtProcessList.Text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+            Process[] runningProcesses = Process.GetProcesses();
             foreach (var game in gamesToWatch)
             {
-                string gameName =
-                    game.ToLower().Replace(".exe", "");
+                string gameName = game.ToLower().Replace(".exe", "");
+                var processesToKill = runningProcesses.Where(p => p.ProcessName.ToLower() == gameName);
+                foreach (var p in processesToKill) { try { p.Kill(); } catch { } }
+            }
 
-                var processesToKill =
-                    runningProcesses.Where(
-                        p => p.ProcessName.ToLower() == gameName);
+            bool unlocked = PromptForUnlockWithTimeout();
 
-                foreach (var p in processesToKill)
+            if (unlocked)
+            {
+                timeRemainingSeconds = 0;
+                if (File.Exists(timeFilePath)) File.Delete(timeFilePath);
+                isRunning = false;
+                btnStart.Enabled = true;
+                btnStop.Enabled = false;
+                chkGpuTrigger.Enabled = true; cmbGpuThreshold.Enabled = true;
+                chkCpuTrigger.Enabled = true; cmbCpuThreshold.Enabled = true;
+                chkProcessTrigger.Enabled = true;
+                lblTimeRemaining.Text = "Protection disabled (unblocked).";
+                try { AppManager.SetAutostart(false); } catch { }
+            }
+            else
+            {
+                try
                 {
-                    try
-                    {
-                        p.Kill();
-                    }
-                    catch
-                    {
-                    }
+                    Process.Start("shutdown", "/s /f /t 0");
                 }
-            }
-
-            try
-            {
-                Process.Start(
-                    "shutdown",
-                    "/s /f /t 0");
-            }
-            catch
-            {
+                catch { }
             }
         }
 
