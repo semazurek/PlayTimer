@@ -1110,7 +1110,7 @@ namespace PT2
                 btnStop.Enabled = true;
                 btnSaveList.Enabled = false;
                 txtProcessList.Enabled = false;
-
+                cmbHoursAllowed.Enabled = false;
                 chkGpuTrigger.Enabled = false;
                 cmbGpuThreshold.Enabled = false;
                 chkCpuTrigger.Enabled = false;
@@ -1136,7 +1136,7 @@ namespace PT2
             btnStop.Enabled = false;
             btnSaveList.Enabled = true;
             txtProcessList.Enabled = true;
-
+            cmbHoursAllowed.Enabled = true;
             chkGpuTrigger.Enabled = true;
             cmbGpuThreshold.Enabled = true;
             chkCpuTrigger.Enabled = true;
@@ -1154,7 +1154,7 @@ namespace PT2
             }
         }
 
-        private void MonitoringTimer_Tick(object sender, EventArgs e)
+        private async void MonitoringTimer_Tick(object sender, EventArgs e)
         {
             bool isGamingDetected = false;
 
@@ -1218,8 +1218,11 @@ namespace PT2
 
                 try
                 {
-                    float cpuUsage =
-                        cpuCounter.NextValue();
+                    cpuCounter.NextValue();
+
+                    await System.Threading.Tasks.Task.Delay(100);
+
+                    float cpuUsage = cpuCounter.NextValue();
 
                     if (cpuUsage >= threshold)
                         isGamingDetected = true;
@@ -1356,34 +1359,64 @@ namespace PT2
 
         private void EnforceTimeLimit()
         {
-            // Jeśli okno odblokowania jest już otwarte, nic nie rób
             if (isUnlocking) return;
 
             isUnlocking = true;
-            monitoringTimer.Stop(); // Zatrzymaj timer, aby nie wywoływał kolejnych okien co 5s
+            monitoringTimer.Stop();
 
-            string[] gamesToWatch = txtProcessList.Text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+            string[] gamesToWatch = txtProcessList.Text
+                .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(g => g.Trim().ToLower().Replace(".exe", ""))
+                .Where(g => !string.IsNullOrWhiteSpace(g))
+                .ToArray();
+
             Process[] runningProcesses = Process.GetProcesses();
-            foreach (var game in gamesToWatch)
+
+            try
             {
-                string gameName = game.ToLower().Replace(".exe", "");
-                var processesToKill = runningProcesses.Where(p => p.ProcessName.ToLower() == gameName);
-                foreach (var p in processesToKill) { try { p.Kill(); } catch { } }
+                foreach (var p in runningProcesses)
+                {
+                    try
+                    {
+                        if (gamesToWatch.Contains(p.ProcessName.ToLower()))
+                        {
+                            p.Kill();
+                        }
+                    }
+                    catch { }
+                    finally
+                    {
+                        p.Dispose();
+                    }
+                }
             }
+            catch { }
 
             bool unlocked = PromptForUnlockWithTimeout();
 
             if (unlocked)
             {
                 timeRemainingSeconds = 0;
-                if (File.Exists(timeFilePath)) File.Delete(timeFilePath);
+                if (File.Exists(timeFilePath))
+                {
+                    try { File.Delete(timeFilePath); } catch { }
+                }
+
                 isRunning = false;
+
                 btnStart.Enabled = true;
                 btnStop.Enabled = false;
-                chkGpuTrigger.Enabled = true; cmbGpuThreshold.Enabled = true;
-                chkCpuTrigger.Enabled = true; cmbCpuThreshold.Enabled = true;
+                btnSaveList.Enabled = true;
+                txtProcessList.Enabled = true;
+                cmbHoursAllowed.Enabled = true;
+                chkGpuTrigger.Enabled = true;
+                cmbGpuThreshold.Enabled = true;
+                chkCpuTrigger.Enabled = true;
+                cmbCpuThreshold.Enabled = true;
                 chkProcessTrigger.Enabled = true;
+
                 lblTimeRemaining.Text = "Protection disabled (unblocked).";
+
                 try { AppManager.SetAutostart(false); } catch { }
             }
             else
