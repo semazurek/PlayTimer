@@ -61,7 +61,7 @@ namespace PT2
             notifyIcon1 = new NotifyIcon();
             notifyIcon1.Icon = Resources.PTIcon;
             notifyIcon1.Text = "PlayTimer";
-            notifyIcon1.Visible = true;
+            //notifyIcon1.Visible = true;
             notifyIcon1.MouseDoubleClick += NotifyIcon1_MouseDoubleClick;
 
             gpuMonitor = new GpuMonitor();
@@ -86,10 +86,13 @@ namespace PT2
 
             this.Shown += (s, e) =>
             {
+                // Najpierw upewnij się, że ikonka w trayu pojawi się poprawnie (gdy Explorer już wstał)
+                notifyIcon1.Visible = true;
+
                 if (args.Contains("/sillent") || args.Contains("-sillent") || args.Contains("sillent"))
                 {
                     int savedTime = LoadTimeFromFile();
-                    if (savedTime > 0)
+                    if (savedTime >= 0)
                     {
                         timeRemainingSeconds = savedTime;
                     }
@@ -97,6 +100,15 @@ namespace PT2
                     {
                         int hours = int.Parse(cmbHoursAllowed.SelectedItem.ToString());
                         timeRemainingSeconds = hours * 3600;
+                    }
+
+                    // Kluczowy moment: jeśli po restarcie czas w pliku to 0 lub mniej, od razu egzekwuj limit!
+                    if (timeRemainingSeconds <= 0)
+                    {
+                        timeRemainingSeconds = 0;
+                        UpdateTimerLabel();
+                        EnforceTimeLimit();
+                        return;
                     }
 
                     isRunning = true;
@@ -117,7 +129,6 @@ namespace PT2
 
                     this.Hide();
                     this.ShowInTaskbar = false;
-                    notifyIcon1.Visible = true;
                 }
             };
         }
