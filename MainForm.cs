@@ -1278,7 +1278,7 @@ namespace PT2
 
             Label lblInfo = new Label()
             {
-                Text = "Time's up! Enter the password within 5 minutes, otherwise the computer will shut down again.",
+                Text = "Time's up! Enter the password within 5 minutes, otherwise the computer will shut down.",
                 Location = new Point(20, 15),
                 Size = new Size(330, 40),
                 Font = new Font("Segoe UI", 9.5F)
@@ -1321,7 +1321,7 @@ namespace PT2
                 secondsLeft--;
                 int m = secondsLeft / 60;
                 int sRem = secondsLeft % 60;
-                lblCountdown.Text = $"Pozostały czas na wpisanie hasła: {m:D2}:{sRem:D2}";
+                lblCountdown.Text = $"Time remaining to enter the password: {m:D2}:{sRem:D2}";
 
                 if (secondsLeft <= 0)
                 {
